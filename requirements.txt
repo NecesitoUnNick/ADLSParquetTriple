@@ -1,0 +1,21 @@
+# Framework and Server
+fastapi
+uvicorn[standard]
+
+# Data Processing
+polars
+
+# Azure Cloud SDK
+azure-storage-blob
+azure-identity
+azure-storage-file-datalake
+
+# Configuration
+pydantic-settings
+python-dotenv
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+pytest-mock
