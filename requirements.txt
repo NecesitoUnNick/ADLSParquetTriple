@@ -1,6 +1,7 @@
 # Framework and Server
 fastapi
 uvicorn[standard]
+aiohttp
 
 # Data Processing
 polars

@@ -37,8 +37,10 @@ AZURE_BLOB_CONTAINER_NAME="parquet-data"
 # El file system de Data Lake donde se guardarán los logs (si se mantiene la funcionalidad).
 AZURE_DATALAKE_FILESYSTEM_NAME="logs"
 
-# Una lista en formato JSON de los archivos Parquet a cargar.
-PARQUET_FILE_NAMES='["api_movimientoaction0.parquet", "api_movimientoaction1.parquet", "api_movimientoaction2.parquet"]'
+# Nombre de los archivos Parquet a cargar.
+PARQUET_FILE_NAME_0="api_movimientoaction0.parquet"
+PARQUET_FILE_NAME_1="api_movimientoaction1.parquet"
+PARQUET_FILE_NAME_2="api_movimientoaction2.parquet"
 
 # (Opcional) Plantilla para la ruta del archivo de log.
 # LOG_FILE_PATH_TEMPLATE="fast-parquet-api/{year}/{month}/{day}/log.jsonl"

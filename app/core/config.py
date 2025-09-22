@@ -30,8 +30,6 @@ class Settings(BaseSettings):
             Storage where the Parquet files are located.
         AZURE_DATALAKE_FILESYSTEM_NAME (str): The name of the file system in Azure
             Data Lake Storage Gen2 where logs will be written.
-        PARQUET_FILE_NAMES (List[str]): A list of the Parquet file names to be
-            loaded at startup.
         LOG_FILE_PATH_TEMPLATE (str): A template string for the log file path in
             the Data Lake, with placeholders for date parts.
     """
@@ -47,8 +45,28 @@ class Settings(BaseSettings):
     AZURE_DATALAKE_FILESYSTEM_NAME: str
 
     # --- Data and Logging Configuration ---
-    PARQUET_FILE_NAMES: List[str]
-    LOG_FILE_PATH_TEMPLATE: str = "fast-parquet-api/{year}/{month}/{day}/log.jsonl"
+    PARQUET_FILE_NAME_0: Optional[str] = None
+    PARQUET_FILE_NAME_1: Optional[str] = None
+    PARQUET_FILE_NAME_2: Optional[str] = None
+    LOG_FILE_PATH_TEMPLATE: str = "/Raw/DataEngineering/FiduX/LogsParquets/{year}/{month}/{day}/log.jsonl"
+
+    parquet_files: List[str] = []
+
+    @model_validator(mode='after')
+    def _assemble_parquet_files(self) -> 'Settings':
+        """
+        Assembles a list of non-None Parquet file names.
+        """
+        self.parquet_files = [
+            name
+            for name in [
+                self.PARQUET_FILE_NAME_0,
+                self.PARQUET_FILE_NAME_1,
+                self.PARQUET_FILE_NAME_2,
+            ]
+            if name is not None
+        ]
+        return self
 
     @model_validator(mode='after')
     def _check_azure_auth_method(self) -> 'Settings':

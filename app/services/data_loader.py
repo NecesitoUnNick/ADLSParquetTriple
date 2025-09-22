@@ -92,7 +92,7 @@ async def load_datasets_into_memory() -> Dict[str, pl.DataFrame]:
         Exception: If any of the datasets fail to load, the exception is
                    propagated to halt application startup.
     """
-    file_names = settings.PARQUET_FILE_NAMES
+    file_names = settings.parquet_files
     logger.info(f"Starting data loading process for files: {file_names}")
 
     tasks = [_download_and_load_one_parquet(file_name) for file_name in file_names]
