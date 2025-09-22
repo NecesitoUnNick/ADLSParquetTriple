@@ -13,7 +13,6 @@ from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.services.filter_service import FilterService
-from app.api import endpoints as api_endpoints_module
 
 # Mark all tests in this module as asyncio tests
 pytestmark = pytest.mark.asyncio
@@ -25,31 +24,50 @@ def sample_dataframes() -> dict[str, pl.DataFrame]:
     Provides sample Polars DataFrames for testing.
     This fixture is session-scoped as the data is read-only.
     """
+    # Data for movimientoaction0
+    df0 = pl.DataFrame({
+        "OrdenanteId": ["900707908", "900707908", "12345"],
+        "TipoIdOrdenante": ["N", "N", "N"],
+        "Product": ["FCO", "FCO", "FCO"],
+        "EffectiveDateStr": ["2024-12-05", "2024-12-15", "2024-12-20"],
+        "Reference": ["301000315559", "other", "301000315559"],
+        "EventNum": ["1", "2", "3"]
+    }).sort(["OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr", "Reference"])
+
+    # Data for movimientoaction1
     df1 = pl.DataFrame({
-        "categoria": ["A", "B", "A", "C", "B"],
-        "valor": [10, 25, 30, 40, 50],
-        "flag": [True, False, True, False, True]
-    })
-    return {"dataset1": df1}
+        "OrdenanteId": ["900859943", "900859943", "12345"],
+        "TipoIdOrdenante": ["N", "N", "N"],
+        "Product": ["FCO", "FCO", "OTHER"],
+        "EffectiveDateStr": ["2025-03-02", "2025-03-08", "2025-03-09"],
+    }).sort(["OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr"])
+
+    # Data for movimientoaction2
+    df2 = pl.DataFrame({
+        "OrdenanteId": ["900707908", "900707908", "900707908"],
+        "TipoIdOrdenante": ["N", "N", "C"],
+        "Product": ["FCO", "FCO", "FCO"],
+        "EventNum": ["3327598", "12345", "3327598"],
+        "Reference": ["301000307726", "301000307726", "other"],
+    }).sort(["OrdenanteId", "TipoIdOrdenante", "Product", "EventNum", "Reference"])
+
+    return {
+        "api_movimientoaction0": df0,
+        "api_movimientoaction1": df1,
+        "api_movimientoaction2": df2,
+    }
 
 
 @pytest_asyncio.fixture
 async def client(mocker, sample_dataframes) -> AsyncClient:
     """
     Provides a fully configured asynchronous test client.
-
-    This fixture handles mocking of external services and directly injects
-    the necessary state into the app object. This is a robust way to
-    bypass potential test-runner-specific issues with lifespan events
-    and ensure the app state is ready for testing.
     """
     # Mock external I/O calls
     mocker.patch(
         "app.services.data_loader.load_datasets_into_memory",
         return_value=sample_dataframes
     )
-    mocker.patch("app.api.endpoints.queue_log_message")
-
     # Manually initialize the service and set the app state for tests
     app.state.filter_service = FilterService(sample_dataframes)
 
@@ -67,86 +85,102 @@ async def test_health_check(client: AsyncClient):
     assert response.json() == {"status": "ok"}
 
 
-async def test_filter_no_params(client: AsyncClient):
-    """Tests a successful filter request with no query parameters."""
-    response = await client.get("/api/v1/filter/dataset1")
-    assert response.status_code == 200
-    json_response = response.json()
-    assert json_response["row_count"] == 5
-    assert len(json_response["data"]) == 5
-    assert json_response["query"] == {}
+# --- Tests for /query/movimientoaction0 ---
 
-
-async def test_filter_with_params(client: AsyncClient):
-    """Tests a successful filter request with valid query parameters."""
-    response = await client.get("/api/v1/filter/dataset1?categoria=A&valor_min=20")
+async def test_query_movimientoaction0_success(client: AsyncClient):
+    """Tests a successful filter on the movimientoaction0 endpoint."""
+    payload = {
+        "OrdenanteId": "900707908",
+        "TipoIdOrdenante": "N",
+        "Product": "FCO",
+        "EffectiveDateStart": "2024-12-02",
+        "EffectiveDateEnd": "2024-12-31",
+        "Reference": "301000315559"
+    }
+    response = await client.post("/api/v1/query/movimientoaction0", json=payload)
     assert response.status_code == 200
     json_response = response.json()
     assert json_response["row_count"] == 1
     assert len(json_response["data"]) == 1
-    assert json_response["data"][0]["categoria"] == "A"
-    assert json_response["data"][0]["valor"] == 30
-    assert json_response["query"] == {"categoria": "A", "valor_min": "20"}
+    assert json_response["data"][0]["Reference"] == "301000315559"
+    assert json_response["data"][0]["EffectiveDateStr"] == "2024-12-05"
 
 
-async def test_filter_caching(mocker, client: AsyncClient):
-    """
-    Tests that the in-memory cache is being used correctly.
-    It spies on the internal filter method to check call counts.
-    """
-    # The service is on app.state, we can spy on its instance methods
-    apply_filters_spy = mocker.spy(app.state.filter_service, "_apply_filters")
-
-    # First call - should be a cache miss, so the method is called
-    res1 = await client.get("/api/v1/filter/dataset1?categoria=B")
-    assert res1.status_code == 200
-    assert res1.json()["row_count"] == 2
-    assert apply_filters_spy.call_count == 1
-
-    # Second, identical call - should be a cache hit, method is NOT called again
-    res2 = await client.get("/api/v1/filter/dataset1?categoria=B")
-    assert res2.status_code == 200
-    assert res2.json()["row_count"] == 2
-    assert apply_filters_spy.call_count == 1
-
-    # Third call with different params - should be a miss again
-    res3 = await client.get("/api/v1/filter/dataset1?flag=True")
-    assert res3.status_code == 200
-    assert res3.json()["row_count"] == 3
-    assert apply_filters_spy.call_count == 2
+async def test_query_movimientoaction0_not_found(client: AsyncClient):
+    """Tests a filter that returns no results on movimientoaction0."""
+    payload = {
+        "OrdenanteId": "900707908",
+        "TipoIdOrdenante": "N",
+        "Product": "FCO",
+        "EffectiveDateStart": "2024-12-02",
+        "EffectiveDateEnd": "2024-12-31",
+        "Reference": "non_existent_ref"
+    }
+    response = await client.post("/api/v1/query/movimientoaction0", json=payload)
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["row_count"] == 0
+    assert len(json_response["data"]) == 0
 
 
-async def test_filter_dataset_not_found(client: AsyncClient):
-    """Tests that a 404 is returned for a non-existent dataset."""
-    response = await client.get("/api/v1/filter/unknown_dataset")
-    assert response.status_code == 404
-    assert "not found" in response.json()["detail"]
+# --- Tests for /query/movimientoaction1 ---
+
+async def test_query_movimientoaction1_success(client: AsyncClient):
+    """Tests a successful filter on the movimientoaction1 endpoint."""
+    payload = {
+        "OrdenanteId": "900859943",
+        "TipoIdOrdenante": "N",
+        "Product": "FCO",
+        "EffectiveDateStart": "2025-03-01",
+        "EffectiveDateEnd": "2025-03-10"
+    }
+    response = await client.post("/api/v1/query/movimientoaction1", json=payload)
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["row_count"] == 2
+    assert len(json_response["data"]) == 2
 
 
-async def test_filter_invalid_column(client: AsyncClient):
-    """Tests that a 400 is returned for a filter on a non-existent column."""
-    response = await client.get("/api/v1/filter/dataset1?bad_column=123")
-    assert response.status_code == 400
-    assert "does not exist" in response.json()["detail"]
+async def test_query_movimientoaction1_bad_date_range(client: AsyncClient):
+    """Tests a filter with a date range that matches no data on movimientoaction1."""
+    payload = {
+        "OrdenanteId": "900859943",
+        "TipoIdOrdenante": "N",
+        "Product": "FCO",
+        "EffectiveDateStart": "2026-01-01",
+        "EffectiveDateEnd": "2026-01-31"
+    }
+    response = await client.post("/api/v1/query/movimientoaction1", json=payload)
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["row_count"] == 0
 
 
-async def test_filter_invalid_value_type(client: AsyncClient):
-    """Tests that a 400 is returned for a filter with an uncastable value."""
-    response = await client.get("/api/v1/filter/dataset1?valor_min=abc")
-    assert response.status_code == 400
-    assert "could not cast" in response.json()["detail"]
+# --- Tests for /query/movimientoaction2 ---
+
+async def test_query_movimientoaction2_success(client: AsyncClient):
+    """Tests a successful filter on the movimientoaction2 endpoint."""
+    payload = {
+        "OrdenanteId": "900707908",
+        "TipoIdOrdenante": "N",
+        "Product": "FCO",
+        "EventNum": "3327598",
+        "Reference": "301000307726"
+    }
+    response = await client.post("/api/v1/query/movimientoaction2", json=payload)
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["row_count"] == 1
+    assert len(json_response["data"]) == 1
+    assert json_response["data"][0]["EventNum"] == "3327598"
 
 
-async def test_logging_is_called(mocker, client: AsyncClient):
-    """Tests that the background logging task is correctly queued."""
-    log_spy = mocker.spy(api_endpoints_module, 'queue_log_message')
-
-    await client.get("/api/v1/filter/dataset1?categoria=A")
-
-    assert log_spy.call_count == 1
-    # Check some of the arguments passed to the logger
-    call_args = log_spy.call_args[1]
-    assert call_args["request_path"] == "/api/v1/filter/dataset1"
-    assert call_args["request_params"] == {"categoria": "A"}
-    assert call_args["response_payload_summary"]["row_count"] == 2
-    assert "processing_time_ms" in call_args
+async def test_query_invalid_body(client: AsyncClient):
+    """Tests sending an incomplete payload to an endpoint."""
+    payload = {
+        "OrdenanteId": "900707908"
+        # Missing other required fields
+    }
+    response = await client.post("/api/v1/query/movimientoaction2", json=payload)
+    assert response.status_code == 422  # Unprocessable Entity
+    assert "field required" in response.text.lower()

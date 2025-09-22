@@ -50,3 +50,33 @@ class FilterResponse(BaseModel):
         ]},
         description="The list of records matching the filter criteria."
     )
+
+
+# --- Request Models for Specific Endpoints ---
+
+class MovimientoAction0Filter(BaseModel):
+    """Request body for /query/movimientoaction0 endpoint."""
+    OrdenanteId: str
+    TipoIdOrdenante: str
+    Product: str
+    EffectiveDateStart: str
+    EffectiveDateEnd: str
+    Reference: str
+
+
+class MovimientoAction1Filter(BaseModel):
+    """Request body for /query/movimientoaction1 endpoint."""
+    OrdenanteId: str
+    TipoIdOrdenante: str
+    Product: str
+    EffectiveDateStart: str
+    EffectiveDateEnd: str
+
+
+class MovimientoAction2Filter(BaseModel):
+    """Request body for /query/movimientoaction2 endpoint."""
+    OrdenanteId: str
+    TipoIdOrdenante: str
+    Product: str
+    EventNum: str
+    Reference: str
