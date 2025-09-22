@@ -15,40 +15,62 @@ from app.services.azure_client import download_parquet_file_async
 logger = logging.getLogger(__name__)
 
 
+# A mapping of filenames to the columns they should be sorted by for optimization.
+SORT_KEY_MAP = {
+    "api_movimientoaction0.parquet": [
+        "OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr", "Reference"
+    ],
+    "api_movimientoaction1.parquet": [
+        "OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr"
+    ],
+    "api_movimientoaction2.parquet": [
+        "OrdenanteId", "TipoIdOrdenante", "Product", "EventNum", "Reference"
+    ],
+}
+
+
 async def _download_and_load_one_parquet(file_name: str) -> Tuple[str, pl.DataFrame]:
     """
-    Downloads a single Parquet file from Azure and loads it into a Polars DataFrame.
-
-    This is a helper coroutine for `load_datasets_into_memory`.
+    Downloads a single Parquet file from Azure, loads it into a Polars DataFrame,
+    and pre-sorts it for query optimization.
 
     Args:
         file_name: The name of the Parquet file to process.
 
     Returns:
-        A tuple containing the dataset key (file name without extension) and the
-        loaded Polars DataFrame.
+        A tuple containing the dataset key and the loaded, sorted DataFrame.
 
     Raises:
         FileNotFoundError: If the file is not found in Azure Blob Storage.
-        Exception: For any other errors during download or parsing.
+        Exception: For other errors during download or processing.
     """
     logger.info(f"Starting download of '{file_name}'...")
     try:
         parquet_bytes = await download_parquet_file_async(file_name)
-        # Use io.BytesIO to treat the byte content as a file for Polars
         dataframe = pl.read_parquet(io.BytesIO(parquet_bytes))
-
-        # Use the file name without the .parquet extension as the key
         dataset_key = file_name.removesuffix(".parquet")
-        logger.info(
-            f"Successfully downloaded and loaded '{file_name}' into memory. "
-            f"Shape: {dataframe.shape}"
-        )
+        logger.info(f"Successfully loaded '{file_name}'. Shape: {dataframe.shape}. Pre-sorting...")
+
+        # Pre-sort the DataFrame for performance if a sort key is defined
+        if file_name in SORT_KEY_MAP:
+            sort_columns = SORT_KEY_MAP[file_name]
+            # Ensure all sort columns exist in the DataFrame before sorting
+            missing_cols = [col for col in sort_columns if col not in dataframe.columns]
+            if not missing_cols:
+                dataframe = dataframe.sort(sort_columns)
+                logger.info(f"DataFrame '{dataset_key}' sorted by {sort_columns}.")
+            else:
+                logger.warning(
+                    f"Cannot sort '{dataset_key}': Missing columns {missing_cols}. "
+                    "Proceeding with unsorted data."
+                )
+        else:
+            logger.info(f"No pre-sort key defined for '{file_name}'.")
+
+        logger.info(f"Finished processing '{dataset_key}'.")
         return dataset_key, dataframe
     except FileNotFoundError:
-        logger.critical(
-            f"Dataset '{file_name}' not found. Application may not function correctly."
-        )
+        logger.critical(f"Dataset '{file_name}' not found. Application may not function correctly.")
         raise
     except Exception as e:
         logger.critical(f"Failed to load dataset '{file_name}': {e}", exc_info=True)
