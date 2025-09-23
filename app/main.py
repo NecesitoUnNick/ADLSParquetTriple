@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from app.api.endpoints import api_router
 from app.core.logging import start_log_worker, stop_log_worker
+from app.services import azure_client
 from app.services.data_loader import load_datasets_into_memory
 from app.services.filter_service import FilterService
 
@@ -24,21 +25,23 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     Gestiona los eventos del ciclo de vida de la aplicación utilizando el protocolo lifespan moderno.
-    - Al inicio: Inicia el worker de logs, carga los datos e inicializa los servicios.
-    - Al apagar: Detiene de forma segura el worker de logs.
+    - Al inicio: Inicia servicios (logs, clientes de Azure) y precarga los datos.
+    - Al apagar: Cierra de forma segura los servicios en segundo plano.
     """
     logger.info("Iniciando la aplicación...")
+    # Inicia los servicios en segundo plano primero
     start_log_worker()
+    await azure_client.initialize_azure_clients()
 
     try:
         # Carga los datos de forma asíncrona y los almacena en el estado de la aplicación.
-        # Esto asegura que los datos se carguen después de que el bucle de eventos haya comenzado,
-        # evitando conflictos con asyncio.run().
         preloaded_dataframes = await load_datasets_into_memory()
         app.state.filter_service = FilterService(preloaded_dataframes)
         logger.info("Servicio de filtrado inicializado con datos pre-cargados.")
     except Exception as e:
         logger.critical(f"CRÍTICO: Fallo al inicializar la aplicación durante el inicio: {e}", exc_info=True)
+        # Asegura que los servicios iniciados se cierren en caso de fallo
+        await azure_client.close_azure_clients()
         await stop_log_worker()
         raise
 
@@ -46,7 +49,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # --- Apagado de la aplicación ---
     logger.info("Comenzando el apagado de la aplicación...")
+    await azure_client.close_azure_clients()
     await stop_log_worker()
     logger.info("Apagado de la aplicación completado.")
 
