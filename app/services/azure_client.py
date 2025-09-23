@@ -10,7 +10,7 @@ La autenticación se realiza exclusivamente mediante la cadena de conexión.
 import logging
 from typing import Optional
 
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
 
 from app.core.config import settings
@@ -96,3 +96,40 @@ async def download_parquet_file_async(file_name: str) -> bytes:
             f"El archivo Parquet '{file_name}' no se encontró en el contenedor "
             f"'{settings.AZURE_BLOB_CONTAINER_NAME}'."
         )
+
+
+async def write_log_async(file_path: str, log_data: bytes):
+    """
+    Anexa una línea de log a un blob en Azure Storage.
+    Crea el blob de tipo 'append' si no existe.
+
+    Args:
+        file_path: La ruta completa al archivo de log dentro del contenedor.
+        log_data: Los bytes de la línea de log que se van a anexar.
+    """
+    blob_client = get_blob_service_client().get_blob_client(
+        container=settings.AZURE_BLOB_CONTAINER_NAME,
+        blob=file_path
+    )
+
+    try:
+        # Intenta anexar directamente. Esto funcionará si el blob ya existe.
+        await blob_client.append_block(log_data)
+    except ResourceNotFoundError:
+        # Si el blob no existe, créalo y sube el primer bloque de datos.
+        logger.info(f"El blob de log '{file_path}' no se encontró. Creando y escribiendo el primer log.")
+        try:
+            # Crea el blob de tipo 'append' y sube los datos en una sola operación.
+            # `overwrite=False` es crucial para evitar condiciones de carrera.
+            await blob_client.upload_blob(log_data, blob_type="AppendBlob", overwrite=False)
+        except ResourceExistsError:
+            # Si otro worker creó el blob mientras tanto, nuestra subida fallará.
+            # Ahora podemos anexar nuestro bloque de forma segura.
+            logger.debug(f"El blob '{file_path}' fue creado por otro worker. Anexando nuestro bloque.")
+            await blob_client.append_block(log_data)
+    except Exception as e:
+        logger.error(
+            f"Fallo al anexar al blob '{file_path}'. Error: {e}",
+            exc_info=True
+        )
+        raise
