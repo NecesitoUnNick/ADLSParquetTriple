@@ -118,25 +118,3 @@ async def load_datasets_into_memory() -> Dict[str, pl.DataFrame]:
         raise
 
 
-def load_data_synchronously() -> Dict[str, pl.DataFrame]:
-    """
-    Wrapper síncrono para cargar los datos.
-
-    Esta función inicializa el bucle de eventos de asyncio y ejecuta la
-    función asíncrona de carga de datos. Está diseñada para ser llamada
-    desde un contexto síncrono, como el inicio de un script principal.
-
-    Returns:
-        Un diccionario de DataFrames de Polars cargados.
-    """
-    logger.info("Iniciando el cargador de datos síncrono...")
-    try:
-        # asyncio.run() crea y gestiona un nuevo bucle de eventos
-        dataframes = asyncio.run(load_datasets_into_memory())
-        logger.info("El cargador de datos síncrono ha finalizado exitosamente.")
-        return dataframes
-    except Exception as e:
-        logger.critical(f"Fallo crítico en el cargador de datos síncrono: {e}", exc_info=True)
-        # Propaga la excepción para asegurar que el fallo en la carga de datos
-        # detenga el inicio de la aplicación.
-        raise

@@ -12,19 +12,12 @@ from fastapi import FastAPI
 
 from app.api.endpoints import api_router
 from app.core.logging import start_log_worker, stop_log_worker
-from app.services.data_loader import load_data_synchronously
+from app.services.data_loader import load_datasets_into_memory
 from app.services.filter_service import FilterService
 
 # Configura el logging para la aplicación
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-# --- Carga de Datos de Manera Síncrona en el Proceso Principal ---
-# Almacena los DataFrames cargados en una variable global.
-# Esto asegura que los datos se carguen solo una vez cuando el módulo es importado
-# por el proceso principal de Uvicorn, antes de que los workers sean bifurcados.
-preloaded_dataframes = load_data_synchronously()
 
 
 @asynccontextmanager
@@ -38,8 +31,10 @@ async def lifespan(app: FastAPI):
     start_log_worker()
 
     try:
-        # Los datos ya están cargados en la variable global `preloaded_dataframes`.
-        # Simplemente inicializa el servicio con los datos pre-cargados.
+        # Carga los datos de forma asíncrona y los almacena en el estado de la aplicación.
+        # Esto asegura que los datos se carguen después de que el bucle de eventos haya comenzado,
+        # evitando conflictos con asyncio.run().
+        preloaded_dataframes = await load_datasets_into_memory()
         app.state.filter_service = FilterService(preloaded_dataframes)
         logger.info("Servicio de filtrado inicializado con datos pre-cargados.")
     except Exception as e:
