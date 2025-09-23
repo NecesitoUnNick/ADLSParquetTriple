@@ -18,4 +18,4 @@ def pytest_configure(config):
     os.environ['AZURE_STORAGE_CONNECTION_STRING'] = 'DefaultEndpointsProtocol=https;AccountName=mock;AccountKey=mock;EndpointSuffix=core.windows.net'
     os.environ['AZURE_BLOB_CONTAINER_NAME'] = 'test-parquets'
     os.environ['AZURE_DATALAKE_FILESYSTEM_NAME'] = 'test-logs'
-    os.environ['PARQUET_FILE_NAMES'] = '["dataset1.parquet"]'
+    os.environ['PARQUET_FILE_NAME_0'] = 'dataset1.parquet'
