@@ -1,11 +1,10 @@
 """
-API endpoints for the FastParquetFilterAPI.
+Endpoints de la API para FastParquetFilterAPI.
 
-This module defines the routes for health checks and data filtering.
+Este módulo define las rutas para las comprobaciones de estado y el filtrado de datos.
 """
-
-import time
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.api.schemas import (
     FilterResponse,
     HealthCheck,
@@ -18,41 +17,43 @@ from app.services.filter_service import FilterService
 api_router = APIRouter()
 
 
-# --- Dependency ---
+# --- Dependencia ---
+
 
 def get_filter_service(request: Request) -> FilterService:
     """
-    A FastAPI dependency to retrieve the shared FilterService instance.
+    Una dependencia de FastAPI para recuperar la instancia compartida de FilterService.
     """
     return request.app.state.filter_service
 
 
-# --- API Endpoints ---
+# --- Endpoints de la API ---
+
 
 @api_router.get(
     "/health",
     response_model=HealthCheck,
-    tags=["Monitoring"],
-    summary="Performs a Health Check",
-    description="Returns a 200 OK status if the service is active and running.",
+    tags=["Monitoreo"],
+    summary="Realiza una comprobación de estado",
+    description="Devuelve un estado 200 OK si el servicio está activo y en funcionamiento.",
 )
 async def health_check():
-    """Endpoint to verify that the service is running."""
+    """Endpoint para verificar que el servicio está en funcionamiento."""
     return HealthCheck(status="ok")
 
 
 @api_router.post(
     "/query/movimientoaction0",
     response_model=FilterResponse,
-    tags=["Data Filtering"],
-    summary="Filters the 'movimientoaction0' dataset.",
+    tags=["Filtrado de Datos"],
+    summary="Filtra el conjunto de datos 'movimientoaction0'.",
 )
 async def query_movimientoaction0(
     filters: MovimientoAction0Filter,
     service: FilterService = Depends(get_filter_service),
 ):
     """
-    Filters the 'api_movimientoaction0.parquet' dataset based on specific criteria.
+    Filtra el conjunto de datos 'api_movimientoaction0.parquet' según criterios específicos.
     """
     try:
         result_data = service.filter_movimientoaction0(filters)
@@ -64,21 +65,21 @@ async def query_movimientoaction0(
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Ocurrió un error interno: {e}")
 
 
 @api_router.post(
     "/query/movimientoaction1",
     response_model=FilterResponse,
-    tags=["Data Filtering"],
-    summary="Filters the 'movimientoaction1' dataset.",
+    tags=["Filtrado de Datos"],
+    summary="Filtra el conjunto de datos 'movimientoaction1'.",
 )
 async def query_movimientoaction1(
     filters: MovimientoAction1Filter,
     service: FilterService = Depends(get_filter_service),
 ):
     """
-    Filters the 'api_movimientoaction1.parquet' dataset based on specific criteria.
+    Filtra el conjunto de datos 'api_movimientoaction1.parquet' según criterios específicos.
     """
     try:
         result_data = service.filter_movimientoaction1(filters)
@@ -90,21 +91,21 @@ async def query_movimientoaction1(
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Ocurrió un error interno: {e}")
 
 
 @api_router.post(
     "/query/movimientoaction2",
     response_model=FilterResponse,
-    tags=["Data Filtering"],
-    summary="Filters the 'movimientoaction2' dataset.",
+    tags=["Filtrado de Datos"],
+    summary="Filtra el conjunto de datos 'movimientoaction2'.",
 )
 async def query_movimientoaction2(
     filters: MovimientoAction2Filter,
     service: FilterService = Depends(get_filter_service),
 ):
     """
-    Filters the 'api_movimientoaction2.parquet' dataset based on specific criteria.
+    Filtra el conjunto de datos 'api_movimientoaction2.parquet' según criterios específicos.
     """
     try:
         result_data = service.filter_movimientoaction2(filters)
@@ -116,4 +117,4 @@ async def query_movimientoaction2(
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Ocurrió un error interno: {e}")

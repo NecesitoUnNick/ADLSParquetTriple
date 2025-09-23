@@ -1,5 +1,5 @@
 """
-Service for loading datasets from Azure into memory at application startup.
+Servicio para cargar conjuntos de datos desde Azure a la memoria en el inicio de la aplicación.
 """
 
 import asyncio
@@ -15,7 +15,7 @@ from app.services.azure_client import download_parquet_file_async
 logger = logging.getLogger(__name__)
 
 
-# A mapping of filenames to the columns they should be sorted by for optimization.
+# Un mapeo de nombres de archivo a las columnas por las que deben ordenarse para optimización.
 SORT_KEY_MAP = {
     "api_movimientoaction0.parquet": [
         "OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr", "Reference"
@@ -31,88 +31,88 @@ SORT_KEY_MAP = {
 
 async def _download_and_load_one_parquet(file_name: str) -> Tuple[str, pl.DataFrame]:
     """
-    Downloads a single Parquet file from Azure, loads it into a Polars DataFrame,
-    and pre-sorts it for query optimization.
+    Descarga un único archivo Parquet desde Azure, lo carga en un DataFrame de Polars,
+    y lo pre-ordena para optimización de consultas.
 
     Args:
-        file_name: The name of the Parquet file to process.
+        file_name: El nombre del archivo Parquet a procesar.
 
     Returns:
-        A tuple containing the dataset key and the loaded, sorted DataFrame.
+        Una tupla que contiene la clave del conjunto de datos y el DataFrame cargado y ordenado.
 
     Raises:
-        FileNotFoundError: If the file is not found in Azure Blob Storage.
-        Exception: For other errors during download or processing.
+        FileNotFoundError: Si no se encuentra el archivo en Azure Blob Storage.
+        Exception: Para otros errores durante la descarga o el procesamiento.
     """
-    logger.info(f"Starting download of '{file_name}'...")
+    logger.info(f"Iniciando descarga de '{file_name}'...")
     try:
         parquet_bytes = await download_parquet_file_async(file_name)
         dataframe = pl.read_parquet(io.BytesIO(parquet_bytes))
         dataset_key = file_name.removesuffix(".parquet")
-        logger.info(f"Successfully loaded '{file_name}'. Shape: {dataframe.shape}. Pre-sorting...")
+        logger.info(f"'{file_name}' cargado exitosamente. Shape: {dataframe.shape}. Pre-ordenando...")
 
-        # Pre-sort the DataFrame for performance if a sort key is defined
+        # Pre-ordena el DataFrame para rendimiento si se define una clave de ordenación
         if file_name in SORT_KEY_MAP:
             sort_columns = SORT_KEY_MAP[file_name]
-            # Ensure all sort columns exist in the DataFrame before sorting
+            # Asegura que todas las columnas de ordenación existan en el DataFrame antes de ordenar
             missing_cols = [col for col in sort_columns if col not in dataframe.columns]
             if not missing_cols:
                 dataframe = dataframe.sort(sort_columns)
-                logger.info(f"DataFrame '{dataset_key}' sorted by {sort_columns}.")
+                logger.info(f"DataFrame '{dataset_key}' ordenado por {sort_columns}.")
             else:
                 logger.warning(
-                    f"Cannot sort '{dataset_key}': Missing columns {missing_cols}. "
-                    "Proceeding with unsorted data."
+                    f"No se puede ordenar '{dataset_key}': Faltan columnas {missing_cols}. "
+                    "Continuando con datos sin ordenar."
                 )
         else:
-            logger.info(f"No pre-sort key defined for '{file_name}'.")
+            logger.info(f"No se ha definido una clave de pre-ordenación para '{file_name}'.")
 
-        logger.info(f"Finished processing '{dataset_key}'.")
+        logger.info(f"Procesamiento de '{dataset_key}' finalizado.")
         return dataset_key, dataframe
     except FileNotFoundError:
-        logger.critical(f"Dataset '{file_name}' not found. Application may not function correctly.")
+        logger.critical(f"No se encontró el conjunto de datos '{file_name}'. La aplicación podría no funcionar correctamente.")
         raise
     except Exception as e:
-        logger.critical(f"Failed to load dataset '{file_name}': {e}", exc_info=True)
+        logger.critical(f"Fallo al cargar el conjunto de datos '{file_name}': {e}", exc_info=True)
         raise
 
 
 async def load_datasets_into_memory() -> Dict[str, pl.DataFrame]:
     """
-    Concurrently downloads all specified Parquet files from Azure Blob Storage
-    and loads them into a dictionary of Polars DataFrames.
+    Descarga concurrentemente todos los archivos Parquet especificados desde Azure Blob Storage
+    y los carga en un diccionario de DataFrames de Polars.
 
-    This function is intended to be called once at application startup.
+    Esta función está destinada a ser llamada una vez en el inicio de la aplicación.
 
     Returns:
-        A dictionary where keys are dataset names (e.g., 'dataset1') and
-        values are the corresponding Polars DataFrames.
+        Un diccionario donde las claves son nombres de conjuntos de datos (ej., 'dataset1') y
+        los valores son los correspondientes DataFrames de Polars.
 
     Raises:
-        Exception: If any of the datasets fail to load, the exception is
-                   propagated to halt application startup.
+        Exception: Si alguno de los conjuntos de datos falla al cargar, la excepción se
+                   propaga para detener el inicio de la aplicación.
     """
     file_names = settings.parquet_files
-    logger.info(f"Starting data loading process for files: {file_names}")
+    logger.info(f"Iniciando proceso de carga de datos para los archivos: {file_names}")
 
     tasks = [_download_and_load_one_parquet(file_name) for file_name in file_names]
 
-    # asyncio.gather runs all download/load tasks concurrently.
-    # If any task raises an exception, gather will propagate it immediately.
+    # asyncio.gather ejecuta todas las tareas de descarga/carga concurrentemente.
+    # Si alguna tarea lanza una excepción, gather la propagará inmediatamente.
     try:
         results = await asyncio.gather(*tasks)
 
         dataframes = {key: df for key, df in results}
 
         if len(dataframes) != len(file_names):
-            logger.warning("Mismatch in loaded dataframes and requested file names.")
+            logger.warning("Discrepancia entre los dataframes cargados y los nombres de archivo solicitados.")
 
-        logger.info(f"Successfully loaded {len(dataframes)} dataset(s) into memory.")
+        logger.info(f"{len(dataframes)} conjunto(s) de datos cargado(s) exitosamente en memoria.")
         return dataframes
     except Exception as e:
         logger.critical(
-            f"A critical error occurred during dataset loading: {e}. "
-            "Application startup will be aborted."
+            f"Ocurrió un error crítico durante la carga del conjunto de datos: {e}. "
+            "El inicio de la aplicación será abortado."
         )
-        # Re-raise the exception to stop the FastAPI startup process.
+        # Re-lanza la excepción para detener el proceso de inicio de FastAPI.
         raise

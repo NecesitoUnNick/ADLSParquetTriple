@@ -1,10 +1,10 @@
 """
-Asynchronous client for interacting with Azure Storage services.
+Cliente asíncrono para interactuar con los servicios de Azure Storage.
 
-This module provides functions to connect to Azure Blob Storage for reading
-Parquet files and to Azure Data Lake Storage Gen2 for writing logs.
-It uses a cached factory pattern to reuse service clients and credentials,
-improving performance and resource management.
+Este módulo proporciona funciones para conectarse a Azure Blob Storage para leer
+archivos Parquet y a Azure Data Lake Storage Gen2 para escribir registros.
+Utiliza un patrón de fábrica con caché para reutilizar los clientes de servicio y
+las credenciales, mejorando el rendimiento y la gestión de recursos.
 """
 
 from functools import lru_cache
@@ -21,26 +21,26 @@ from app.core.config import settings
 @lru_cache(maxsize=1)
 def _get_credential() -> Union[str, DefaultAzureCredential]:
     """
-    Gets the appropriate Azure credential based on settings.
-    Uses a connection string if available, otherwise DefaultAzureCredential.
-    This function is cached to avoid re-creating the credential object.
+    Obtiene la credencial de Azure apropiada según la configuración.
+    Usa una cadena de conexión si está disponible, de lo contrario, DefaultAzureCredential.
+    Esta función se almacena en caché para evitar volver a crear el objeto de credencial.
 
     Returns:
-        The configured Azure credential.
+        La credencial de Azure configurada.
     """
     if settings.AZURE_STORAGE_CONNECTION_STRING:
         return settings.AZURE_STORAGE_CONNECTION_STRING
-    # DefaultAzureCredential will use env vars for service principal
+    # DefaultAzureCredential usará variables de entorno para el principal de servicio
     return DefaultAzureCredential()
 
 
 @lru_cache(maxsize=1)
 def get_blob_service_client() -> BlobServiceClient:
     """
-    Creates and returns a single, cached instance of BlobServiceClient.
+    Crea y devuelve una única instancia en caché de BlobServiceClient.
 
     Returns:
-        An asynchronous BlobServiceClient instance.
+        Una instancia asíncrona de BlobServiceClient.
     """
     credential = _get_credential()
     if isinstance(credential, str):
@@ -53,10 +53,10 @@ def get_blob_service_client() -> BlobServiceClient:
 @lru_cache(maxsize=1)
 def get_datalake_service_client() -> DataLakeServiceClient:
     """
-    Creates and returns a single, cached instance of DataLakeServiceClient.
+    Crea y devuelve una única instancia en caché de DataLakeServiceClient.
 
     Returns:
-        An asynchronous DataLakeServiceClient instance.
+        Una instancia asíncrona de DataLakeServiceClient.
     """
     credential = _get_credential()
     if isinstance(credential, str):
@@ -68,16 +68,16 @@ def get_datalake_service_client() -> DataLakeServiceClient:
 
 async def download_parquet_file_async(file_name: str) -> bytes:
     """
-    Downloads a specified Parquet file from Azure Blob Storage.
+    Descarga un archivo Parquet específico desde Azure Blob Storage.
 
     Args:
-        file_name: The name of the blob (file) to download.
+        file_name: El nombre del blob (archivo) a descargar.
 
     Returns:
-        The content of the file as bytes.
+        El contenido del archivo como bytes.
 
     Raises:
-        FileNotFoundError: If the specified file does not exist in the container.
+        FileNotFoundError: Si el archivo especificado no existe en el contenedor.
     """
     blob_service_client = get_blob_service_client()
     async with blob_service_client:
@@ -89,23 +89,24 @@ async def download_parquet_file_async(file_name: str) -> bytes:
             return data
         except ResourceNotFoundError:
             raise FileNotFoundError(
-                f"Parquet file '{file_name}' not found in container "
+                f"El archivo Parquet '{file_name}' no se encontró en el contenedor "
                 f"'{settings.AZURE_BLOB_CONTAINER_NAME}'."
             )
 
 
 async def write_log_async(file_path: str, log_data: bytes):
     """
-    Appends a log entry to a file in Azure Data Lake Storage.
+    Añade una entrada de registro a un archivo en Azure Data Lake Storage.
 
-    This function handles file creation if it doesn't exist and appends data
-    atomically. However, to prevent race conditions from multiple concurrent
-    writers (e.g., in a scaled-out environment), this function should be
-    called from a serialized context, like a single background worker task.
+    Esta función maneja la creación del archivo si no existe y añade los datos
+    de forma atómica. Sin embargo, para prevenir condiciones de carrera de múltiples
+    escritores concurrentes (ej., en un entorno escalado horizontalmente), esta función
+    debería ser llamada desde un contexto serializado, como una única tarea trabajadora
+    en segundo plano.
 
     Args:
-        file_path: The full path to the log file in the Data Lake.
-        log_data: The log data to append, encoded as bytes.
+        file_path: La ruta completa al archivo de registro en el Data Lake.
+        log_data: Los datos de registro a añadir, codificados como bytes.
     """
     datalake_service_client = get_datalake_service_client()
     async with datalake_service_client:

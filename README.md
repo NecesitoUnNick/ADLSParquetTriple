@@ -73,6 +73,14 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 El servicio estará disponible en `http://localhost:8000`. La compilación para producción en Azure se realizará automáticamente con Oryx.
 
+## Pruebas
+
+Para ejecutar el conjunto de pruebas, asegúrese de haber instalado las dependencias de desarrollo y luego ejecute `pytest` desde el directorio raíz del proyecto:
+
+```sh
+pytest
+```
+
 ## Estructura de la API
 
 La documentación interactiva de la API (Swagger UI) está disponible en `http://localhost:8000/api/docs`.
