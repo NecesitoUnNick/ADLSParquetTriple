@@ -37,6 +37,7 @@ async def log_worker():
     `log_queue`. Los formatea y los envía a Azure Data Lake.
     """
     while True:
+        log_message = None
         try:
             log_message = await log_queue.get()
 
@@ -61,8 +62,11 @@ async def log_worker():
             # Si falla la escritura en Azure, registra el error en la consola.
             console_logger.error(f"Fallo al escribir el log en Azure: {e}", exc_info=True)
         finally:
-            # Señala que el elemento de la cola ha sido procesado.
-            log_queue.task_done()
+            # Señala que el elemento de la cola ha sido procesado, solo si se obtuvo uno.
+            # Esto evita el error 'task_done() called too many times' si la tarea es cancelada
+            # mientras espera en `log_queue.get()`.
+            if log_message is not None:
+                log_queue.task_done()
 
 
 async def queue_log_message(
