@@ -6,6 +6,7 @@ desde Azure a la memoria al inicio de la aplicación.
 import asyncio
 import io
 import logging
+import os
 from typing import Dict, Optional, Tuple
 
 import polars as pl
@@ -28,8 +29,8 @@ async def _load_movimientoaction0(file_name: str) -> Optional[Tuple[str, pl.Data
 
         sort_columns = ["OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr", "Reference"]
         df = df.sort(sort_columns)
-        logger.info(f"DataFrame 'movimientoaction0' ordenado por {sort_columns}.")
-        return "movimientoaction0", df
+        logger.info(f"DataFrame 'api_movimientoaction0' ordenado por {sort_columns}.")
+        return "api_movimientoaction0", df
     except (FileNotFoundError, Exception) as e:
         logger.critical(f"Fallo al cargar o procesar '{file_name}': {e}", exc_info=True)
         raise
@@ -47,8 +48,8 @@ async def _load_movimientoaction1(file_name: str) -> Optional[Tuple[str, pl.Data
 
         sort_columns = ["OrdenanteId", "TipoIdOrdenante", "Product", "EffectiveDateStr"]
         df = df.sort(sort_columns)
-        logger.info(f"DataFrame 'movimientoaction1' ordenado por {sort_columns}.")
-        return "movimientoaction1", df
+        logger.info(f"DataFrame 'api_movimientoaction1' ordenado por {sort_columns}.")
+        return "api_movimientoaction1", df
     except (FileNotFoundError, Exception) as e:
         logger.critical(f"Fallo al cargar o procesar '{file_name}': {e}", exc_info=True)
         raise
@@ -66,8 +67,8 @@ async def _load_movimientoaction2(file_name: str) -> Optional[Tuple[str, pl.Data
 
         sort_columns = ["OrdenanteId", "TipoIdOrdenante", "Product", "EventNum", "Reference"]
         df = df.sort(sort_columns)
-        logger.info(f"DataFrame 'movimientoaction2' ordenado por {sort_columns}.")
-        return "movimientoaction2", df
+        logger.info(f"DataFrame 'api_movimientoaction2' ordenado por {sort_columns}.")
+        return "api_movimientoaction2", df
     except (FileNotFoundError, Exception) as e:
         logger.critical(f"Fallo al cargar o procesar '{file_name}': {e}", exc_info=True)
         raise
@@ -87,14 +88,15 @@ async def load_datasets_into_memory() -> Dict[str, pl.DataFrame]:
         "PARQUET_FILE_NAME_2": (_load_movimientoaction2, settings.PARQUET_FILE_NAME_2),
     }
 
-    logger.info(f"Iniciando carga de datos para los archivos: {settings.parquet_files}")
+    pid = os.getpid()
+    logger.info(f"[PID: {pid}] Iniciando carga de datos para los archivos: {settings.parquet_files}")
 
     for key, (loader_func, file_name) in file_mapping.items():
         if file_name:
             tasks.append(loader_func(file_name))
 
     if not tasks:
-        logger.warning("No se ha configurado ningún archivo Parquet para cargar.")
+        logger.warning(f"[PID: {pid}] No se ha configurado ningún archivo Parquet para cargar.")
         return {}
 
     try:
@@ -102,11 +104,11 @@ async def load_datasets_into_memory() -> Dict[str, pl.DataFrame]:
         # Filtra cualquier resultado None que pueda ocurrir si una tarea falla y es manejada
         dataframes = {key: df for key, df in results if key and df is not None}
 
-        logger.info(f"{len(dataframes)} conjunto(s) de datos cargado(s) exitosamente en memoria.")
+        logger.info(f"[PID: {pid}] {len(dataframes)} conjunto(s) de datos cargado(s) exitosamente en memoria.")
         return dataframes
     except Exception as e:
         logger.critical(
-            f"Ocurrió un error crítico durante la carga concurrente de datos: {e}. "
+            f"[PID: {pid}] Ocurrió un error crítico durante la carga concurrente de datos: {e}. "
             "El inicio de la aplicación será abortado."
         )
         raise
