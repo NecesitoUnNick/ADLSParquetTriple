@@ -1,78 +1,75 @@
 """
-Main application entrypoint for the FastParquetFilterAPI.
+Punto de entrada principal de la aplicación para FastParquetFilterAPI.
 
-This file creates the FastAPI application instance, sets up lifecycle events
-for startup and shutdown, and includes the API routers.
+Este archivo crea la instancia de la aplicación FastAPI, configura los eventos del ciclo de vida
+para el inicio y el apagado, e incluye los enrutadores de la API.
 """
 
 import logging
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 
 from app.api.endpoints import api_router
-from app.core.config import settings
 from app.core.logging import start_log_worker, stop_log_worker
 from app.services.data_loader import load_datasets_into_memory
 from app.services.filter_service import FilterService
 
-# Configure logging for the application
+# Configura el logging para la aplicación
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manages application lifecycle events using the modern lifespan protocol.
-    - On startup: Starts the log worker, loads data, and initializes services.
-    - On shutdown: Gracefully stops the log worker.
+    Gestiona los eventos del ciclo de vida de la aplicación utilizando el protocolo lifespan moderno.
+    - Al inicio: Inicia el worker de logs, carga los datos e inicializa los servicios.
+    - Al apagar: Detiene de forma segura el worker de logs.
     """
-    logger.info("Application startup commencing...")
+    logger.info("Iniciando la aplicación...")
     start_log_worker()
 
     try:
         dataframes = await load_datasets_into_memory()
         app.state.filter_service = FilterService(dataframes)
-        logger.info("Filter service initialized successfully.")
+        logger.info("Servicio de filtrado inicializado correctamente.")
     except Exception as e:
-        logger.critical(f"CRITICAL: Failed to initialize application during startup: {e}", exc_info=True)
+        logger.critical(f"CRÍTICO: Fallo al inicializar la aplicación durante el inicio: {e}", exc_info=True)
         await stop_log_worker()
         raise
 
-    logger.info("Application startup complete.")
+    logger.info("Inicio de la aplicación completado.")
 
     yield
 
-    logger.info("Application shutdown commencing...")
+    logger.info("Comenzando el apagado de la aplicación...")
     await stop_log_worker()
-    logger.info("Application shutdown complete.")
+    logger.info("Apagado de la aplicación completado.")
 
 
-# Create the FastAPI app instance with the lifespan handler and metadata
+# Crea la instancia de la aplicación FastAPI con el manejador de ciclo de vida y metadatos
 app = FastAPI(
     title="FastParquetFilterAPI",
-    description="A high-speed microservice for filtering Parquet data from Azure.",
+    description="Un microservicio de alta velocidad para filtrar datos Parquet desde Azure.",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/v1/openapi.json",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
-# --- Include API Routers ---
+# --- Incluir Enrutadores de la API ---
 
-# This makes all endpoints from app/api/endpoints.py available under the /api/v1 prefix.
+# Esto hace que todos los endpoints de app/api/endpoints.py estén disponibles bajo el prefijo /api/v1.
 app.include_router(api_router, prefix="/api/v1")
 
 
-# --- Root Endpoint ---
+# --- Endpoint Raíz ---
 
-@app.get("/", tags=["Root"])
+
+@app.get("/", tags=["Raíz"])
 async def read_root():
-    """A simple root endpoint to confirm the API is running."""
-    return {"message": "Welcome to the FastParquetFilterAPI. See docs at /api/docs"}
+    """Un endpoint raíz simple para confirmar que la API está en funcionamiento."""
+    return {"message": "Bienvenido a FastParquetFilterAPI. Consulta la documentación en /api/docs"}

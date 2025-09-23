@@ -1,9 +1,9 @@
 """
-Pydantic models for the API request and response bodies.
+Modelos Pydantic para los cuerpos de solicitud y respuesta de la API.
 
-These models define the data structures and provide automatic validation
-for the API endpoints. They are used by FastAPI to serialize response data
-and to generate the OpenAPI schema.
+Estos modelos definen las estructuras de datos y proporcionan validación automática
+para los endpoints de la API. Son utilizados por FastAPI para serializar los datos de respuesta
+y para generar el esquema OpenAPI.
 """
 
 from typing import Any, Dict, List
@@ -13,49 +13,49 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class HealthCheck(BaseModel):
     """
-    Response model for the health check endpoint.
+    Modelo de respuesta para el endpoint de comprobación de estado.
     """
+
     status: str = Field(
         default="ok",
         json_schema_extra={"example": "ok"},
-        description="The operational status of the service."
+        description="El estado operativo del servicio.",
     )
 
 
 class FilterResponse(BaseModel):
     """
-    Standard response model for all data filtering endpoints.
+    Modelo de respuesta estándar para todos los endpoints de filtrado de datos.
 
-    This provides a consistent structure for returning filtered data,
-    including metadata about the query and the result set.
+    Proporciona una estructura consistente para devolver datos filtrados,
+    incluyendo metadatos sobre la consulta y el conjunto de resultados.
     """
-    # Pydantic v2 uses model_config instead of a nested Config class
+
+    # Pydantic v2 usa model_config en lugar de una clase Config anidada
     model_config = ConfigDict(from_attributes=True)
 
     query: Dict[str, Any] = Field(
         ...,
         json_schema_extra={"example": {"categoria": "A", "valor_min": 100}},
-        description="The filter parameters used for the query."
+        description="Los parámetros de filtro utilizados para la consulta.",
     )
-    row_count: int = Field(
-        ...,
-        json_schema_extra={"example": 42},
-        description="The number of rows returned in the result."
-    )
+    row_count: int = Field(..., json_schema_extra={"example": 42}, description="El número de filas devueltas en el resultado.")
     data: List[Dict[str, Any]] = Field(
         ...,
-        json_schema_extra={"example": [
+        json_schema_extra=[
             {"categoria": "A", "valor": 150, "id": "xyz"},
-            {"categoria": "A", "valor": 200, "id": "abc"}
-        ]},
-        description="The list of records matching the filter criteria."
+            {"categoria": "A", "valor": 200, "id": "abc"},
+        ],
+        description="La lista de registros que coinciden con los criterios de filtro.",
     )
 
 
-# --- Request Models for Specific Endpoints ---
+# --- Modelos de Solicitud para Endpoints Específicos ---
+
 
 class MovimientoAction0Filter(BaseModel):
-    """Request body for /query/movimientoaction0 endpoint."""
+    """Cuerpo de la solicitud para el endpoint /query/movimientoaction0."""
+
     OrdenanteId: str
     TipoIdOrdenante: str
     Product: str
@@ -65,7 +65,8 @@ class MovimientoAction0Filter(BaseModel):
 
 
 class MovimientoAction1Filter(BaseModel):
-    """Request body for /query/movimientoaction1 endpoint."""
+    """Cuerpo de la solicitud para el endpoint /query/movimientoaction1."""
+
     OrdenanteId: str
     TipoIdOrdenante: str
     Product: str
@@ -74,7 +75,8 @@ class MovimientoAction1Filter(BaseModel):
 
 
 class MovimientoAction2Filter(BaseModel):
-    """Request body for /query/movimientoaction2 endpoint."""
+    """Cuerpo de la solicitud para el endpoint /query/movimientoaction2."""
+
     OrdenanteId: str
     TipoIdOrdenante: str
     Product: str

@@ -1,8 +1,8 @@
 """
-Configuration module for the FastParquetFilterAPI.
+Módulo de configuración para FastParquetFilterAPI.
 
-This module uses pydantic-settings to load and validate configuration
-from environment variables and a .env file.
+Este módulo utiliza pydantic-settings para cargar y validar la configuración
+desde variables de entorno y un archivo .env.
 """
 
 from typing import List, Optional
@@ -13,38 +13,38 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """
-    Manages application configuration using environment variables.
+    Gestiona la configuración de la aplicación mediante variables de entorno.
 
-    This class loads settings from a .env file and validates them,
-    ensuring that a valid Azure authentication method is provided.
+    Esta clase carga la configuración desde un archivo .env y la valida,
+    asegurando que se proporcione un método de autenticación de Azure válido.
 
-    Attributes:
-        AZURE_STORAGE_CONNECTION_STRING (Optional[str]): The connection string for the
-            Azure Storage Account. Preferred for simplicity.
-        AZURE_STORAGE_ACCOUNT_NAME (Optional[str]): The name of the storage account.
-            Used for service principal authentication.
-        AZURE_TENANT_ID (Optional[str]): The Azure Active Directory tenant ID.
-        AZURE_CLIENT_ID (Optional[str]): The client ID of the service principal.
-        AZURE_CLIENT_SECRET (Optional[str]): The client secret of the service principal.
-        AZURE_BLOB_CONTAINER_NAME (str): The name of the container in Azure Blob
-            Storage where the Parquet files are located.
-        AZURE_DATALAKE_FILESYSTEM_NAME (str): The name of the file system in Azure
-            Data Lake Storage Gen2 where logs will be written.
-        LOG_FILE_PATH_TEMPLATE (str): A template string for the log file path in
-            the Data Lake, with placeholders for date parts.
+    Atributos:
+        AZURE_STORAGE_CONNECTION_STRING (Optional[str]): La cadena de conexión para la
+            cuenta de Azure Storage. Preferido por simplicidad.
+        AZURE_STORAGE_ACCOUNT_NAME (Optional[str]): El nombre de la cuenta de almacenamiento.
+            Utilizado para la autenticación con principal de servicio.
+        AZURE_TENANT_ID (Optional[str]): El ID del inquilino de Azure Active Directory.
+        AZURE_CLIENT_ID (Optional[str]): El ID de cliente del principal de servicio.
+        AZURE_CLIENT_SECRET (Optional[str]): El secreto de cliente del principal de servicio.
+        AZURE_BLOB_CONTAINER_NAME (str): El nombre del contenedor en Azure Blob
+            Storage donde se encuentran los archivos Parquet.
+        AZURE_DATALAKE_FILESYSTEM_NAME (str): El nombre del sistema de archivos en Azure
+            Data Lake Storage Gen2 donde se escribirán los registros.
+        LOG_FILE_PATH_TEMPLATE (str): Una cadena de plantilla para la ruta del archivo de registro en
+            el Data Lake, con marcadores de posición para partes de la fecha.
     """
-    # --- Azure Storage General Configuration ---
+    # --- Configuración General de Azure Storage ---
     AZURE_STORAGE_CONNECTION_STRING: Optional[str] = None
     AZURE_STORAGE_ACCOUNT_NAME: Optional[str] = None
     AZURE_TENANT_ID: Optional[str] = None
     AZURE_CLIENT_ID: Optional[str] = None
     AZURE_CLIENT_SECRET: Optional[str] = None
 
-    # --- Container and File System Names ---
+    # --- Nombres de Contenedores y Sistemas de Archivos ---
     AZURE_BLOB_CONTAINER_NAME: str
     AZURE_DATALAKE_FILESYSTEM_NAME: str
 
-    # --- Data and Logging Configuration ---
+    # --- Configuración de Datos y Logging ---
     PARQUET_FILE_NAME_0: Optional[str] = None
     PARQUET_FILE_NAME_1: Optional[str] = None
     PARQUET_FILE_NAME_2: Optional[str] = None
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def _assemble_parquet_files(self) -> 'Settings':
         """
-        Assembles a list of non-None Parquet file names.
+        Construye una lista de nombres de archivos Parquet que no son None.
         """
         self.parquet_files = [
             name
@@ -71,10 +71,10 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def _check_azure_auth_method(self) -> 'Settings':
         """
-        Validates that exactly one Azure authentication method is configured.
+        Valida que se haya configurado exactamente un método de autenticación de Azure.
 
         Raises:
-            ValueError: If both or neither authentication methods are configured.
+            ValueError: Si ambos o ninguno de los métodos de autenticación están configurados.
         """
         sp_auth_vars = [
             self.AZURE_STORAGE_ACCOUNT_NAME,
@@ -88,25 +88,25 @@ class Settings(BaseSettings):
 
         if using_connection_string and using_service_principal:
             raise ValueError(
-                "Ambiguous configuration: Both AZURE_STORAGE_CONNECTION_STRING and "
-                "service principal credentials are provided. Please use only one."
+                "Configuración ambigua: Se proporcionaron tanto AZURE_STORAGE_CONNECTION_STRING como "
+                "las credenciales del principal de servicio. Por favor, use solo uno."
             )
 
         if not using_connection_string and not using_service_principal:
             raise ValueError(
-                "Missing configuration: Please provide either AZURE_STORAGE_CONNECTION_STRING or "
-                "all service principal credentials (AZURE_STORAGE_ACCOUNT_NAME, "
+                "Configuración faltante: Proporcione AZURE_STORAGE_CONNECTION_STRING o "
+                "todas las credenciales del principal de servicio (AZURE_STORAGE_ACCOUNT_NAME, "
                 "AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)."
             )
         return self
 
-    # Configure Pydantic to load from a .env file and ignore extra vars
+    # Configura Pydantic para cargar desde un archivo .env e ignorar variables extra
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
 
-# Create a single, reusable instance of the settings.
-# This instance will be imported by other modules.
+# Crea una única instancia reutilizable de la configuración.
+# Esta instancia será importada por otros módulos.
 settings = Settings()

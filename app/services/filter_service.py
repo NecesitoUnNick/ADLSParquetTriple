@@ -1,5 +1,5 @@
 """
-Core service for filtering data.
+Servicio principal para el filtrado de datos.
 """
 
 import logging
@@ -15,34 +15,34 @@ logger = logging.getLogger(__name__)
 
 class FilterService:
     """
-    A service for filtering Polars DataFrames based on specific, predefined logic.
+    Un servicio para filtrar DataFrames de Polars basado en una lógica específica y predefinida.
     """
 
     def __init__(self, dataframes: Dict[str, pl.DataFrame]):
         """
-        Initializes the service with the datasets.
+        Inicializa el servicio con los conjuntos de datos.
 
         Args:
-            dataframes: A dictionary of Polars DataFrames loaded at startup.
+            dataframes: Un diccionario de DataFrames de Polars cargados al inicio.
         """
         self.dataframes = dataframes
-        logger.info(f"FilterService initialized with {len(dataframes)} datasets.")
+        logger.info(f"FilterService inicializado con {len(dataframes)} conjuntos de datos.")
 
     def _get_df(self, dataset_name: str) -> pl.DataFrame:
-        """Helper to get a dataframe and raise a clear error if not found."""
+        """Función auxiliar para obtener un dataframe y lanzar un error claro si no se encuentra."""
         try:
             return self.dataframes[dataset_name]
         except KeyError:
-            logger.error(f"Dataset '{dataset_name}' not found in FilterService.")
-            raise ValueError(f"Dataset '{dataset_name}' not found.")
+            logger.error(f"El conjunto de datos '{dataset_name}' no se encontró en FilterService.")
+            raise ValueError(f"No se encontró el conjunto de datos '{dataset_name}'.")
 
     def filter_movimientoaction0(self, filters: MovimientoAction0Filter) -> List[Dict[str, Any]]:
         """
-        Filters the 'api_movimientoaction0' dataset.
+        Filtra el conjunto de datos 'api_movimientoaction0'.
         """
         df = self._get_df('api_movimientoaction0')
 
-        # Build the filter expression chain
+        # Construye la cadena de expresiones de filtro
         query = (
             df.lazy()
             .filter(pl.col("OrdenanteId") == filters.OrdenanteId)
@@ -58,11 +58,11 @@ class FilterService:
 
     def filter_movimientoaction1(self, filters: MovimientoAction1Filter) -> List[Dict[str, Any]]:
         """
-        Filters the 'api_movimientoaction1' dataset.
+        Filtra el conjunto de datos 'api_movimientoaction1'.
         """
         df = self._get_df('api_movimientoaction1')
 
-        # Build the filter expression chain
+        # Construye la cadena de expresiones de filtro
         query = (
             df.lazy()
             .filter(pl.col("OrdenanteId") == filters.OrdenanteId)
@@ -77,11 +77,11 @@ class FilterService:
 
     def filter_movimientoaction2(self, filters: MovimientoAction2Filter) -> List[Dict[str, Any]]:
         """
-        Filters the 'api_movimientoaction2' dataset.
+        Filtra el conjunto de datos 'api_movimientoaction2'.
         """
         df = self._get_df('api_movimientoaction2')
 
-        # Build the filter expression chain
+        # Construye la cadena de expresiones de filtro
         query = (
             df.lazy()
             .filter(pl.col("OrdenanteId") == filters.OrdenanteId)
