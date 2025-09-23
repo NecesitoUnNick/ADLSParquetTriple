@@ -5,6 +5,7 @@ Servicio para cargar conjuntos de datos desde Azure a la memoria en el inicio de
 import asyncio
 import io
 import logging
+import os
 from typing import Dict, Tuple
 
 import polars as pl
@@ -48,12 +49,16 @@ async def _download_and_load_one_parquet(file_name: str) -> Tuple[str, pl.DataFr
     try:
         parquet_bytes = await download_parquet_file_async(file_name)
         dataframe = pl.read_parquet(io.BytesIO(parquet_bytes))
-        dataset_key = file_name.removesuffix(".parquet")
+
+        # Extrae solo el nombre del archivo para usarlo como clave y para la búsqueda de ordenación
+        base_file_name = os.path.basename(file_name)
+        dataset_key = base_file_name.removesuffix(".parquet")
+
         logger.info(f"'{file_name}' cargado exitosamente. Shape: {dataframe.shape}. Pre-ordenando...")
 
         # Pre-ordena el DataFrame para rendimiento si se define una clave de ordenación
-        if file_name in SORT_KEY_MAP:
-            sort_columns = SORT_KEY_MAP[file_name]
+        if base_file_name in SORT_KEY_MAP:
+            sort_columns = SORT_KEY_MAP[base_file_name]
             # Asegura que todas las columnas de ordenación existan en el DataFrame antes de ordenar
             missing_cols = [col for col in sort_columns if col not in dataframe.columns]
             if not missing_cols:
@@ -65,7 +70,7 @@ async def _download_and_load_one_parquet(file_name: str) -> Tuple[str, pl.DataFr
                     "Continuando con datos sin ordenar."
                 )
         else:
-            logger.info(f"No se ha definido una clave de pre-ordenación para '{file_name}'.")
+            logger.info(f"No se ha definido una clave de pre-ordenación para '{base_file_name}'.")
 
         logger.info(f"Procesamiento de '{dataset_key}' finalizado.")
         return dataset_key, dataframe
