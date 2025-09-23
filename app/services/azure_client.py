@@ -1,101 +1,86 @@
 """
-Cliente asíncrono para interactuar con los servicios de Azure Storage.
+Cliente asíncrono para interactuar con Azure Blob Storage.
 
-Este módulo proporciona una gestión centralizada del ciclo de vida para los clientes de
-servicios de Azure, asegurando que se inicialicen al inicio de la aplicación y se
-cierren de forma segura al apagarse. Esto previene errores de 'Conexión cerrada'
+Este módulo proporciona una gestión centralizada del ciclo de vida para el cliente
+de Blob Storage, asegurando que se inicialice al inicio de la aplicación y se
+cierre de forma segura al apagarse. Esto previene errores de 'Conexión cerrada'
 bajo cargas concurrentes al reutilizar una única sesión de transporte.
+La autenticación se realiza exclusivamente mediante la cadena de conexión.
 """
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from azure.core.exceptions import ResourceNotFoundError
-from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobServiceClient
-from azure.storage.filedatalake.aio import DataLakeServiceClient
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# --- Instancias de Cliente Gestionadas Globalmente ---
+# --- Instancia de Cliente Gestionada Globalmente ---
 _blob_service_client: Optional[BlobServiceClient] = None
-_datalake_service_client: Optional[DataLakeServiceClient] = None
-
-
-def _get_credential() -> Union[str, DefaultAzureCredential]:
-    """
-    Obtiene la credencial de Azure apropiada según la configuración.
-    Usa una cadena de conexión si está disponible, de lo contrario, DefaultAzureCredential.
-    """
-    if settings.AZURE_STORAGE_CONNECTION_STRING:
-        return settings.AZURE_STORAGE_CONNECTION_STRING
-    return DefaultAzureCredential()
 
 
 async def initialize_azure_clients():
     """
-    Inicializa los clientes de servicio de Azure asíncronos al inicio de la aplicación.
-    Esto abre las sesiones de transporte que serán reutilizadas en toda la aplicación.
+    Inicializa el BlobServiceClient asíncrono usando la cadena de conexión
+    al inicio de la aplicación. Esto abre la sesión de transporte que será
+    reutilizada en toda la aplicación.
     """
-    global _blob_service_client, _datalake_service_client
-    logger.info("Inicializando clientes de Azure...")
+    global _blob_service_client
+    logger.info("Inicializando cliente de Azure Blob Storage...")
 
-    credential = _get_credential()
-    if isinstance(credential, str):
-        # Usar cadena de conexión
-        blob_account_url = None
-        datalake_account_url = None
-        _blob_service_client = BlobServiceClient.from_connection_string(credential)
-        _datalake_service_client = DataLakeServiceClient.from_connection_string(credential)
-    else:
-        # Usar DefaultAzureCredential
-        blob_account_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
-        datalake_account_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net"
-        _blob_service_client = BlobServiceClient(account_url=blob_account_url, credential=credential)
-        _datalake_service_client = DataLakeServiceClient(account_url=datalake_account_url, credential=credential)
+    if not settings.AZURE_STORAGE_CONNECTION_STRING:
+        raise ValueError("AZURE_STORAGE_CONNECTION_STRING no está configurada.")
+
+    _blob_service_client = BlobServiceClient.from_connection_string(
+        settings.AZURE_STORAGE_CONNECTION_STRING
+    )
 
     # Entra en el contexto del gestor para abrir la sesión de red
     await _blob_service_client.__aenter__()
-    await _datalake_service_client.__aenter__()
-    logger.info("Clientes de Azure inicializados y listos.")
+    logger.info("Cliente de Azure Blob Storage inicializado y listo.")
 
 
 async def close_azure_clients():
     """
-    Cierra de forma segura los clientes de servicio de Azure durante el apagado de la aplicación.
+    Cierra de forma segura el BlobServiceClient durante el apagado de la aplicación.
     """
-    global _blob_service_client, _datalake_service_client
-    logger.info("Cerrando clientes de Azure...")
+    global _blob_service_client
+    logger.info("Cerrando cliente de Azure Blob Storage...")
     if _blob_service_client:
         await _blob_service_client.__aexit__(None, None, None)
-    if _datalake_service_client:
-        await _datalake_service_client.__aexit__(None, None, None)
-    logger.info("Clientes de Azure cerrados de forma segura.")
+    logger.info("Cliente de Azure Blob Storage cerrado de forma segura.")
 
 
 def get_blob_service_client() -> BlobServiceClient:
     """
     Devuelve la instancia global inicializada de BlobServiceClient.
+
+    Raises:
+        RuntimeError: Si el cliente no ha sido inicializado.
     """
     if not _blob_service_client:
-        raise RuntimeError("El BlobServiceClient no ha sido inicializado.")
+        raise RuntimeError("El BlobServiceClient no ha sido inicializado. "
+                           "Asegúrate de que se llame a `initialize_azure_clients` "
+                           "al inicio de la aplicación.")
     return _blob_service_client
-
-
-def get_datalake_service_client() -> DataLakeServiceClient:
-    """
-    Devuelve la instancia global inicializada de DataLakeServiceClient.
-    """
-    if not _datalake_service_client:
-        raise RuntimeError("El DataLakeServiceClient no ha sido inicializado.")
-    return _datalake_service_client
 
 
 async def download_parquet_file_async(file_name: str) -> bytes:
     """
     Descarga un archivo Parquet específico desde Azure Blob Storage.
     Utiliza el cliente de servicio gestionado globalmente.
+
+    Args:
+        file_name: El nombre del archivo a descargar.
+
+    Returns:
+        Los bytes del archivo descargado.
+
+    Raises:
+        FileNotFoundError: Si el archivo no se encuentra en el contenedor.
+        RuntimeError: Si el cliente de blob no está inicializado.
     """
     blob_service_client = get_blob_service_client()
     container_client = blob_service_client.get_container_client(settings.AZURE_BLOB_CONTAINER_NAME)
@@ -105,29 +90,9 @@ async def download_parquet_file_async(file_name: str) -> bytes:
         data = await download_stream.readall()
         return data
     except ResourceNotFoundError:
+        logger.error(f"El archivo Parquet '{file_name}' no se encontró en el contenedor "
+                     f"'{settings.AZURE_BLOB_CONTAINER_NAME}'.")
         raise FileNotFoundError(
             f"El archivo Parquet '{file_name}' no se encontró en el contenedor "
             f"'{settings.AZURE_BLOB_CONTAINER_NAME}'."
         )
-
-
-async def write_log_async(file_path: str, log_data: bytes):
-    """
-    Añade una entrada de registro a un archivo en Azure Data Lake Storage.
-    Utiliza el cliente de servicio gestionado globalmente.
-    """
-    datalake_service_client = get_datalake_service_client()
-    file_system_client = datalake_service_client.get_file_system_client(
-        settings.AZURE_DATALAKE_FILESYSTEM_NAME
-    )
-    file_client = file_system_client.get_file_client(file_path)
-
-    try:
-        properties = await file_client.get_properties()
-        offset = properties.size
-    except ResourceNotFoundError:
-        await file_client.create_file()
-        offset = 0
-
-    await file_client.append_data(data=log_data, offset=offset)
-    await file_client.flush_data(offset=offset + len(log_data))

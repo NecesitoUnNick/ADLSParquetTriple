@@ -15,17 +15,12 @@ class Settings(BaseSettings):
     """
     Gestiona la configuración de la aplicación mediante variables de entorno.
 
-    Esta clase carga la configuración desde un archivo .env y la valida,
-    asegurando que se proporcione un método de autenticación de Azure válido.
+    Esta clase carga la configuración desde un archivo .env y la valida.
+    La autenticación con Azure se realiza exclusivamente mediante una cadena de conexión.
 
     Atributos:
-        AZURE_STORAGE_CONNECTION_STRING (Optional[str]): La cadena de conexión para la
-            cuenta de Azure Storage. Preferido por simplicidad.
-        AZURE_STORAGE_ACCOUNT_NAME (Optional[str]): El nombre de la cuenta de almacenamiento.
-            Utilizado para la autenticación con principal de servicio.
-        AZURE_TENANT_ID (Optional[str]): El ID del inquilino de Azure Active Directory.
-        AZURE_CLIENT_ID (Optional[str]): El ID de cliente del principal de servicio.
-        AZURE_CLIENT_SECRET (Optional[str]): El secreto de cliente del principal de servicio.
+        AZURE_STORAGE_CONNECTION_STRING (str): La cadena de conexión para la
+            cuenta de Azure Storage. Es obligatoria.
         AZURE_BLOB_CONTAINER_NAME (str): El nombre del contenedor en Azure Blob
             Storage donde se encuentran los archivos Parquet.
         AZURE_DATALAKE_FILESYSTEM_NAME (str): El nombre del sistema de archivos en Azure
@@ -33,14 +28,8 @@ class Settings(BaseSettings):
         LOG_FILE_PATH_TEMPLATE (str): Una cadena de plantilla para la ruta del archivo de registro en
             el Data Lake, con marcadores de posición para partes de la fecha.
     """
-    # --- Configuración General de Azure Storage ---
-    AZURE_STORAGE_CONNECTION_STRING: Optional[str] = None
-    AZURE_STORAGE_ACCOUNT_NAME: Optional[str] = None
-    AZURE_TENANT_ID: Optional[str] = None
-    AZURE_CLIENT_ID: Optional[str] = None
-    AZURE_CLIENT_SECRET: Optional[str] = None
-
-    # --- Nombres de Contenedores y Sistemas de Archivos ---
+    # --- Configuración de Azure Storage ---
+    AZURE_STORAGE_CONNECTION_STRING: str
     AZURE_BLOB_CONTAINER_NAME: str
     AZURE_DATALAKE_FILESYSTEM_NAME: str
 
@@ -66,38 +55,6 @@ class Settings(BaseSettings):
             ]
             if name is not None
         ]
-        return self
-
-    @model_validator(mode='after')
-    def _check_azure_auth_method(self) -> 'Settings':
-        """
-        Valida que se haya configurado exactamente un método de autenticación de Azure.
-
-        Raises:
-            ValueError: Si ambos o ninguno de los métodos de autenticación están configurados.
-        """
-        sp_auth_vars = [
-            self.AZURE_STORAGE_ACCOUNT_NAME,
-            self.AZURE_TENANT_ID,
-            self.AZURE_CLIENT_ID,
-            self.AZURE_CLIENT_SECRET,
-        ]
-
-        using_connection_string = self.AZURE_STORAGE_CONNECTION_STRING is not None
-        using_service_principal = all(v is not None for v in sp_auth_vars)
-
-        if using_connection_string and using_service_principal:
-            raise ValueError(
-                "Configuración ambigua: Se proporcionaron tanto AZURE_STORAGE_CONNECTION_STRING como "
-                "las credenciales del principal de servicio. Por favor, use solo uno."
-            )
-
-        if not using_connection_string and not using_service_principal:
-            raise ValueError(
-                "Configuración faltante: Proporcione AZURE_STORAGE_CONNECTION_STRING o "
-                "todas las credenciales del principal de servicio (AZURE_STORAGE_ACCOUNT_NAME, "
-                "AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)."
-            )
         return self
 
     # Configura Pydantic para cargar desde un archivo .env e ignorar variables extra
